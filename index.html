@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Linear Algebra Engine — exact matrix &amp; polynomial computation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="sheet">
+
+  <!-- ===== Title block ===== -->
+  <header class="titleblock">
+    <div class="titleblock__main">
+      <span class="titleblock__eyebrow">DRWG NO. 1.1.1</span>
+      <h1 class="titleblock__title">Linear&nbsp;Algebra&nbsp;Engine</h1>
+      <p class="titleblock__subtitle">Exact-arithmetic matrices, polynomials &amp; rational fractions — no rounding, no floats.</p>
+    </div>
+    <dl class="titleblock__meta">
+      <div class="titleblock__field">
+        <dt>FIELD</dt><dd>ℚ, ℝ (radicals), ℚ[x]</dd>
+      </div>
+      <div class="titleblock__field">
+        <dt>ELIMINATION</dt><dd>fraction-free, up to 12×12</dd>
+      </div>
+      <div class="titleblock__field">
+        <dt>STATUS</dt>
+        <dd id="engineStatus" class="status status--loading">
+          <span class="status__dot"></span>booting runtime
+        </dd>
+      </div>
+    </dl>
+  </header>
+
+  <p class="lede">
+    Determinant, rank and rref all run on the same fraction-free row reduction —
+    never cofactor expansion — so a 12×12 matrix is exact and still fast.
+  </p>
+
+  <!-- ===== Matrices ===== -->
+  <section class="panel panel--matrices" aria-label="Matrices">
+    <div class="section-head">
+      <h2>Matrices</h2>
+      <button type="button" class="add-btn" id="addMatrixBtn">+ Add matrix</button>
+    </div>
+    <div class="matrix-list" id="matrixList"></div>
+  </section>
+
+  <!-- ===== Notebook ===== -->
+  <section class="panel panel--notebook" aria-label="Expression notebook" id="notebookPanel" aria-busy="true">
+    <div class="section-head">
+      <h2>Notebook</h2>
+      <button type="button" class="add-btn" id="addLineBtn">+ Add line</button>
+    </div>
+    <p class="hint">
+      Type in real math notation — fractions, exponents and roots render as you go.
+      Declare anything: <code>P = x^2 + 1</code>, then <code>P*Q/(P+Q)</code>. Reference any
+      matrix by its name: <code>A^2 + B + Identity</code>. A name assigned to a plain number,
+      like <code>a = 1</code>, stays a symbol in later lines rather than being substituted —
+      write the number directly if you want a literal value. Lowercase <code>x</code> is the
+      free polynomial variable and <code>i</code> is the imaginary unit; neither can be
+      reassigned. Everything recomputes live as you type.
+    </p>
+    <div class="notebook-lines" id="notebookLines"></div>
+    <button type="button" class="run-all-btn" id="runAllBtn">▶ Run all</button>
+  </section>
+
+  <footer class="foundry-note">
+    Computed in your browser with the original Python engine, run via Pyodide. Nothing is sent to a server.
+  </footer>
+
+</div>
+
+<template id="matrixBlockTemplate">
+  <div class="matrix-block">
+    <div class="matrix-block__head">
+      <input type="text" class="matrix-name" maxlength="12" spellcheck="false" autocomplete="off" />
+      <div class="dim-controls">
+        <button type="button" class="stepper" data-action="rows-dec" aria-label="Fewer rows">−</button>
+        <span class="dim-readout"><span data-dim="rows"></span> rows</span>
+        <button type="button" class="stepper" data-action="rows-inc" aria-label="More rows">+</button>
+        <span class="dim-sep">×</span>
+        <button type="button" class="stepper" data-action="cols-dec" aria-label="Fewer columns">−</button>
+        <span class="dim-readout"><span data-dim="cols"></span> cols</span>
+        <button type="button" class="stepper" data-action="cols-inc" aria-label="More columns">+</button>
+      </div>
+      <button type="button" class="remove-btn" aria-label="Remove this matrix">✕</button>
+    </div>
+
+    <div class="callout callout--top">
+      <span class="callout__line"></span>
+      <span class="callout__label"><span data-dim-label="cols"></span> columns</span>
+      <span class="callout__line"></span>
+    </div>
+    <div class="grid-frame">
+      <div class="callout callout--left">
+        <span class="callout__label callout__label--vert"><span data-dim-label="rows"></span> rows</span>
+      </div>
+      <div class="matrix-grid"></div>
+    </div>
+
+    <div class="ops-row">
+      <button type="button" class="op-btn" data-op="transpose">Transpose</button>
+      <button type="button" class="op-btn" data-op="det">Det</button>
+      <button type="button" class="op-btn" data-op="rank">Rank</button>
+      <button type="button" class="op-btn" data-op="inv">Inverse</button>
+      <button type="button" class="op-btn" data-op="rref">RREF</button>
+      <button type="button" class="op-btn" data-op="kernel">Kernel</button>
+      <button type="button" class="op-btn" data-op="image">Image</button>
+      <button type="button" class="op-btn" data-op="trace">Trace</button>
+      <button type="button" class="op-btn" data-op="charpoly">Char. poly</button>
+      <button type="button" class="op-btn" data-op="properties">Properties</button>
+      <span class="op-btn op-btn--power">
+        <button type="button" data-op="power">A <sup>k</sup></button>
+        <input type="text" class="power-input" value="2" inputmode="numeric" aria-label="Exponent k" />
+      </span>
+    </div>
+
+    <div class="block-output" hidden>
+      <span class="block-output__label"></span>
+      <div class="block-output__math"></div>
+    </div>
+  </div>
+</template>
+
+<template id="notebookLineTemplate">
+  <div class="nb-line">
+    <div class="nb-line__row">
+      <span class="nb-line__prompt">›</span>
+      <math-field class="nb-line__input" placeholder="P=x^2+1"></math-field>
+      <button type="button" class="nb-line__remove" aria-label="Remove this line">✕</button>
+    </div>
+    <div class="nb-line__output"></div>
+  </div>
+</template>
+
+<script defer src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathlive"></script>
+<script defer src="app.js"></script>
+</body>
+</html>
